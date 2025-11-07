@@ -22,15 +22,410 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       }
 
       canvas {
         display: block;
       }
+
+      .controls {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(10, 15, 25, 0.9);
+        border: 1px solid rgba(100, 120, 160, 0.3);
+        border-radius: 8px;
+        padding: 20px;
+        min-width: 250px;
+        color: #e0e6ed;
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .controls h3 {
+        margin: 0 0 15px 0;
+        color: #7fb3d3;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        color: #b0c4de;
+        font-weight: 500;
+      }
+
+      .control-group input[type='range'] {
+        width: 100%;
+        height: 4px;
+        background: rgba(80, 120, 160, 0.3);
+        border-radius: 2px;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .control-group input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: #7fb3d3;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .control-group input[type='range']::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        background: #7fb3d3;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .control-group .value-display {
+        float: right;
+        font-size: 11px;
+        color: #7fb3d3;
+        font-weight: bold;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+      }
+
+      .control-button {
+        flex: 1;
+        padding: 8px 12px;
+        background: rgba(80, 120, 160, 0.2);
+        border: 1px solid rgba(80, 120, 160, 0.4);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .control-button:hover {
+        background: rgba(80, 120, 160, 0.3);
+        border-color: rgba(80, 120, 160, 0.6);
+      }
+
+      .control-button:active {
+        background: rgba(80, 120, 160, 0.4);
+      }
+
+      .toggle-controls {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(10, 15, 25, 0.9);
+        border: 1px solid rgba(100, 120, 160, 0.3);
+        border-radius: 4px;
+        padding: 8px 12px;
+        color: #e0e6ed;
+        cursor: pointer;
+        font-size: 12px;
+        z-index: 1001;
+        backdrop-filter: blur(10px);
+      }
+
+      .controls.hidden {
+        display: none;
+      }
+
+      .save-section {
+        border-top: 1px solid rgba(100, 120, 160, 0.2);
+        padding-top: 15px;
+        margin-top: 15px;
+      }
+
+      .save-input-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .save-input {
+        flex: 1;
+        padding: 6px 8px;
+        background: rgba(80, 120, 160, 0.1);
+        border: 1px solid rgba(80, 120, 160, 0.3);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        outline: none;
+      }
+
+      .save-input::placeholder {
+        color: rgba(176, 196, 222, 0.7);
+      }
+
+      .save-input:focus {
+        border-color: rgba(127, 179, 211, 0.6);
+        background: rgba(80, 120, 160, 0.15);
+      }
+
+      .save-button {
+        padding: 6px 12px;
+        background: rgba(127, 179, 211, 0.3);
+        border: 1px solid rgba(127, 179, 211, 0.5);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .save-button:hover {
+        background: rgba(127, 179, 211, 0.4);
+        border-color: rgba(127, 179, 211, 0.7);
+      }
+
+      .saved-functions-group {
+        margin-bottom: 10px;
+      }
+
+      .saved-functions-dropdown {
+        width: 100%;
+        padding: 6px 8px;
+        background: rgba(80, 120, 160, 0.1);
+        border: 1px solid rgba(80, 120, 160, 0.3);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      .saved-functions-dropdown option {
+        background: #1a2332;
+        color: #e0e6ed;
+        padding: 4px;
+      }
+
+      .saved-functions-dropdown option:hover {
+        background: rgba(127, 179, 211, 0.3);
+      }
+
+      .saved-functions-dropdown option:checked {
+        background: rgba(127, 179, 211, 0.5);
+        color: #ffffff;
+      }
+
+      .saved-functions-dropdown:focus {
+        border-color: rgba(127, 179, 211, 0.6);
+        background: rgba(80, 120, 160, 0.15);
+      }
+
+      .load-delete-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .load-button {
+        flex: 2;
+        padding: 6px 12px;
+        background: rgba(80, 160, 120, 0.3);
+        border: 1px solid rgba(80, 160, 120, 0.5);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .load-button:hover {
+        background: rgba(80, 160, 120, 0.4);
+        border-color: rgba(80, 160, 120, 0.7);
+      }
+
+      .load-button:disabled {
+        background: rgba(80, 120, 160, 0.1);
+        border-color: rgba(80, 120, 160, 0.2);
+        color: rgba(224, 230, 237, 0.5);
+        cursor: not-allowed;
+      }
+
+      .delete-button {
+        flex: 1;
+        padding: 6px 12px;
+        background: rgba(160, 80, 80, 0.3);
+        border: 1px solid rgba(160, 80, 80, 0.5);
+        border-radius: 4px;
+        color: #e0e6ed;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .delete-button:hover {
+        background: rgba(160, 80, 80, 0.4);
+        border-color: rgba(160, 80, 80, 0.7);
+      }
+
+      .delete-button:disabled {
+        background: rgba(80, 120, 160, 0.1);
+        border-color: rgba(80, 120, 160, 0.2);
+        color: rgba(224, 230, 237, 0.5);
+        cursor: not-allowed;
+      }
     </style>
   </head>
 
   <body>
+    <div class="toggle-controls" onclick="toggleControls()">⚙️ Controls</div>
+
+    <div class="controls" id="controls">
+      <h3>Particle Controls</h3>
+
+      <div class="control-group">
+        <label>
+          Particle Speed
+          <span class="value-display" id="speed-value">1.0x</span>
+        </label>
+        <input
+          type="range"
+          id="speed-slider"
+          min="0.1"
+          max="3.0"
+          step="0.1"
+          value="1.0"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>
+          Particle Count
+          <span class="value-display" id="count-value">300</span>
+        </label>
+        <input
+          type="range"
+          id="count-slider"
+          min="50"
+          max="800"
+          step="50"
+          value="300"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>
+          Trail Length
+          <span class="value-display" id="trail-value">20</span>
+        </label>
+        <input
+          type="range"
+          id="trail-slider"
+          min="5"
+          max="50"
+          step="5"
+          value="20"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>
+          Flow Intensity
+          <span class="value-display" id="flow-value">1.0x</span>
+        </label>
+        <input
+          type="range"
+          id="flow-slider"
+          min="0.2"
+          max="2.0"
+          step="0.1"
+          value="1.0"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>
+          Mouse Influence
+          <span class="value-display" id="mouse-value">1.0x</span>
+        </label>
+        <input
+          type="range"
+          id="mouse-slider"
+          min="0.0"
+          max="2.0"
+          step="0.1"
+          value="1.0"
+        />
+      </div>
+
+      <div class="button-group">
+        <button class="control-button" onclick="resetParticles()">
+          Reset (R)
+        </button>
+        <button class="control-button" onclick="newField()">
+          New Field (Space)
+        </button>
+        <button class="control-button" onclick="clearScreen()">
+          Clear (C)
+        </button>
+      </div>
+
+      <div class="save-section">
+        <h3>Saved Functions</h3>
+
+        <div class="save-input-group">
+          <input
+            type="text"
+            id="function-name-input"
+            class="save-input"
+            placeholder="Enter function name..."
+            maxlength="30"
+          />
+          <button class="save-button" onclick="saveCurrentFunction()">
+            Save
+          </button>
+        </div>
+
+        <div class="saved-functions-group">
+          <label>Saved Functions</label>
+          <select
+            id="saved-functions-dropdown"
+            class="saved-functions-dropdown"
+          >
+            <option value="">Select a saved function...</option>
+          </select>
+        </div>
+
+        <div class="load-delete-group">
+          <button
+            class="load-button"
+            id="load-button"
+            onclick="loadSelectedFunction()"
+            disabled
+          >
+            Load Function
+          </button>
+          <button
+            class="delete-button"
+            id="delete-button"
+            onclick="deleteSelectedFunction()"
+            disabled
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="main.js" type="module"></script>
   </body>
 </html>
