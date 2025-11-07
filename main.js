@@ -114,8 +114,8 @@ let numParticles = 300
 let maxTrailLength = 20
 
 // Control variables
-let speedMultiplier = 1.0
-let flowIntensity = 1.0
+let speedMultiplier = 2.0
+let flowIntensity = 2.0
 let mouseInfluence = 1.0
 let controlsVisible = true
 
@@ -128,6 +128,7 @@ let lastPanPosition = { x: 0, y: 0 }
 let currentFunctionCode = null
 let currentFunctionName = null
 let currentSeed = null
+let currentScale = 5.0 // Default scale value
 
 // Global reference to createEnhancedVectorField function
 let createEnhancedVectorFieldGlobal = null
@@ -180,13 +181,13 @@ function initPixiApp() {
   // Add bloom effect
   try {
     const bloomFilter = new BloomFilter()
-    bloomFilter.blur = 20
-    bloomFilter.quality = 8
+    bloomFilter.blur = 5
+    bloomFilter.quality = 2
     bloomFilter.kernelSize = 5
 
     app.stage.filters = [
       new AdjustmentFilter({
-        brightness: 1.7,
+        brightness: 2,
         saturation: 1.4,
       }),
       bloomFilter,
@@ -227,7 +228,13 @@ function initSimulation(seed = null) {
 
   const functionCode = generateFunction(currentSeed)
   const fn = compileVectorFieldFunction(functionCode)
-  console.log('Generated vector field function with seed:', currentSeed, fn)
+  console.log(
+    'Generated vector field function with seed:',
+    currentSeed,
+    'scale:',
+    currentScale,
+    fn
+  )
 
   // Store current function code for saving
   currentFunctionCode = functionCode
@@ -258,6 +265,7 @@ function initSimulation(seed = null) {
   }
 
   drawBackground()
+  updateURL() // Update URL with initial values
 }
 
 function createEnhancedVectorField(baseFn) {
@@ -265,8 +273,13 @@ function createEnhancedVectorField(baseFn) {
     if (!baseFn) return { x: 0, y: 0 }
 
     // Convert screen coordinates to normalized coordinates for the function
-    const normX = (x - app.screen.width / 2) / (app.screen.width * 0.005)
-    const normY = (y - app.screen.height / 2) / (app.screen.height * 0.005)
+    // Use currentScale to determine the coordinate range (default was 0.005 giving roughly -100 to 100)
+    const scaleMultiplier = (currentScale || 5) / 5 // Default scale of 5 if not set
+    const coordinateScale = 0.005 / scaleMultiplier
+    const normX =
+      (x - app.screen.width / 2) / (app.screen.width * coordinateScale)
+    const normY =
+      (y - app.screen.height / 2) / (app.screen.height * coordinateScale)
 
     // Get base vector field with safety checks
     let baseVec
@@ -702,9 +715,16 @@ function setupEventHandlers() {
       event.preventDefault()
       // Generate new vector field but keep existing particles
       currentSeed = Math.floor(Math.random() * 1000000)
+
       const functionCode = generateFunction(currentSeed)
       const fn = compileVectorFieldFunction(functionCode)
-      console.log('Generated vector field function with seed:', currentSeed, fn)
+      console.log(
+        'Generated vector field function with seed:',
+        currentSeed,
+        'scale:',
+        currentScale,
+        fn
+      )
       vectorField = createEnhancedVectorField(fn)
       state.fn = fn
       state.functionCode = functionCode
@@ -737,9 +757,16 @@ function setupEventHandlers() {
   // Custom events for UI controls
   document.addEventListener('newField', () => {
     currentSeed = Math.floor(Math.random() * 1000000)
+
     const functionCode = generateFunction(currentSeed)
     const fn = compileVectorFieldFunction(functionCode)
-    console.log('Generated vector field function with seed:', currentSeed, fn)
+    console.log(
+      'Generated vector field function with seed:',
+      currentSeed,
+      'scale:',
+      currentScale,
+      fn
+    )
     vectorField = createEnhancedVectorField(fn)
     state.fn = fn
     state.functionCode = functionCode
@@ -903,6 +930,9 @@ function loadSelectedFunction() {
   // Load the function
   const fn = compileVectorFieldFunction(savedFunction.code)
   if (fn && createEnhancedVectorFieldGlobal) {
+    // Generate a new seed for loaded functions
+    currentSeed = Math.floor(Math.random() * 1000000)
+
     vectorField = createEnhancedVectorFieldGlobal(fn)
     currentFunctionCode = savedFunction.code
     currentFunctionName = functionName
@@ -913,7 +943,7 @@ function loadSelectedFunction() {
       state.functionCode = savedFunction.code
     }
 
-    console.log(`Loaded function: ${functionName}`)
+    console.log(`Loaded function: ${functionName} with scale: ${currentScale}`)
 
     // Clear background to show the new field
     if (typeof app !== 'undefined' && app) {
@@ -962,7 +992,18 @@ function generateShareableURL() {
   }
 
   try {
-    const url = `${window.location.origin}${window.location.pathname}#${currentSeed}`
+    // Format: #seed,speed,particles,trail,flow,mouse,scale
+    const params = [
+      currentSeed,
+      speedMultiplier,
+      numParticles,
+      maxTrailLength,
+      flowIntensity,
+      mouseInfluence,
+      currentScale,
+    ].join(',')
+
+    const url = `${window.location.origin}${window.location.pathname}#${params}`
     return url
   } catch (error) {
     console.error('Failed to generate shareable URL:', error)
@@ -1009,15 +1050,111 @@ function loadFromURL() {
   if (!hash) return false
 
   try {
-    const seed = parseInt(hash)
-    if (isNaN(seed)) return false
+    // Check if it's the old format (just a seed) or new format (comma-separated)
+    if (hash.includes(',')) {
+      // New format: seed,speed,particles,trail,flow,mouse,scale
+      const params = hash.split(',')
+      if (params.length >= 7) {
+        const seed = parseInt(params[0])
+        const speed = parseFloat(params[1])
+        const particles = parseInt(params[2])
+        const trail = parseInt(params[3])
+        const flow = parseFloat(params[4])
+        const mouse = parseFloat(params[5])
+        const scale = parseFloat(params[6])
 
-    console.log('Loading seed from URL:', seed)
-    initSimulation(seed)
-    return true
+        if (isNaN(seed)) return false
+
+        // Apply the parameters
+        speedMultiplier = !isNaN(speed) ? speed : 2.0
+        numParticles = !isNaN(particles) ? particles : 300
+        maxTrailLength = !isNaN(trail) ? trail : 20
+        flowIntensity = !isNaN(flow) ? flow : 2.0
+        mouseInfluence = !isNaN(mouse) ? mouse : 1.0
+        currentScale = !isNaN(scale) ? scale : 5.0
+
+        console.log('Loading from URL with parameters:', {
+          seed,
+          speed,
+          particles,
+          trail,
+          flow,
+          mouse,
+          scale,
+        })
+
+        // Update UI sliders
+        updateSlidersFromValues()
+
+        // Initialize simulation with the seed
+        initSimulation(seed)
+        return true
+      }
+    } else {
+      // Old format: just seed
+      const seed = parseInt(hash)
+      if (isNaN(seed)) return false
+
+      console.log('Loading seed from URL (old format):', seed)
+      initSimulation(seed)
+      return true
+    }
+
+    return false
   } catch (error) {
     console.error('Failed to load from URL:', error)
     return false
+  }
+}
+
+// Update slider UI elements to match current values
+function updateSlidersFromValues() {
+  // Speed slider
+  const speedSlider = document.getElementById('speed-slider')
+  const speedValue = document.getElementById('speed-value')
+  if (speedSlider && speedValue) {
+    speedSlider.value = speedMultiplier
+    speedValue.textContent = speedMultiplier.toFixed(1) + 'x'
+  }
+
+  // Particle count slider
+  const countSlider = document.getElementById('count-slider')
+  const countValue = document.getElementById('count-value')
+  if (countSlider && countValue) {
+    countSlider.value = numParticles
+    countValue.textContent = numParticles.toString()
+  }
+
+  // Trail length slider
+  const trailSlider = document.getElementById('trail-slider')
+  const trailValue = document.getElementById('trail-value')
+  if (trailSlider && trailValue) {
+    trailSlider.value = maxTrailLength
+    trailValue.textContent = maxTrailLength.toString()
+  }
+
+  // Flow intensity slider
+  const flowSlider = document.getElementById('flow-slider')
+  const flowValue = document.getElementById('flow-value')
+  if (flowSlider && flowValue) {
+    flowSlider.value = flowIntensity
+    flowValue.textContent = flowIntensity.toFixed(1) + 'x'
+  }
+
+  // Mouse influence slider
+  const mouseSlider = document.getElementById('mouse-slider')
+  const mouseValue = document.getElementById('mouse-value')
+  if (mouseSlider && mouseValue) {
+    mouseSlider.value = mouseInfluence
+    mouseValue.textContent = mouseInfluence.toFixed(1) + 'x'
+  }
+
+  // Scale slider
+  const scaleSlider = document.getElementById('scale-slider')
+  const scaleValue = document.getElementById('scale-value')
+  if (scaleSlider && scaleValue) {
+    scaleSlider.value = currentScale
+    scaleValue.textContent = currentScale.toFixed(1)
   }
 }
 
@@ -1025,7 +1162,18 @@ function updateURL() {
   if (currentSeed === null) return
 
   try {
-    const newURL = `${window.location.pathname}#${currentSeed}`
+    // Format: #seed,speed,particles,trail,flow,mouse,scale
+    const params = [
+      currentSeed,
+      speedMultiplier,
+      numParticles,
+      maxTrailLength,
+      flowIntensity,
+      mouseInfluence,
+      currentScale,
+    ].join(',')
+
+    const newURL = `${window.location.pathname}#${params}`
     history.replaceState(null, '', newURL)
   } catch (error) {
     console.error('Failed to update URL:', error)
@@ -1041,42 +1189,84 @@ document.addEventListener('DOMContentLoaded', () => {
   // Speed control
   const speedSlider = document.getElementById('speed-slider')
   const speedValue = document.getElementById('speed-value')
-  speedSlider.addEventListener('input', (e) => {
-    speedMultiplier = parseFloat(e.target.value)
-    speedValue.textContent = speedMultiplier.toFixed(1) + 'x'
-  })
+  if (speedSlider && speedValue) {
+    speedSlider.addEventListener('input', (e) => {
+      speedMultiplier = parseFloat(e.target.value)
+      speedValue.textContent = speedMultiplier.toFixed(1) + 'x'
+      updateURL()
+    })
+  } else {
+    console.error('Speed slider elements not found')
+  }
 
   // Particle count control
   const countSlider = document.getElementById('count-slider')
   const countValue = document.getElementById('count-value')
-  countSlider.addEventListener('input', (e) => {
-    numParticles = parseInt(e.target.value)
-    countValue.textContent = numParticles.toString()
-  })
+  if (countSlider && countValue) {
+    countSlider.addEventListener('input', (e) => {
+      numParticles = parseInt(e.target.value)
+      countValue.textContent = numParticles.toString()
+      updateURL()
+    })
+  } else {
+    console.error('Count slider elements not found')
+  }
 
   // Trail length control
   const trailSlider = document.getElementById('trail-slider')
   const trailValue = document.getElementById('trail-value')
-  trailSlider.addEventListener('input', (e) => {
-    maxTrailLength = parseInt(e.target.value)
-    trailValue.textContent = maxTrailLength.toString()
-  })
+  if (trailSlider && trailValue) {
+    trailSlider.addEventListener('input', (e) => {
+      maxTrailLength = parseInt(e.target.value)
+      trailValue.textContent = maxTrailLength.toString()
+      updateURL()
+    })
+  } else {
+    console.error('Trail slider elements not found')
+  }
 
   // Flow intensity control
   const flowSlider = document.getElementById('flow-slider')
   const flowValue = document.getElementById('flow-value')
-  flowSlider.addEventListener('input', (e) => {
-    flowIntensity = parseFloat(e.target.value)
-    flowValue.textContent = flowIntensity.toFixed(1) + 'x'
-  })
+  if (flowSlider && flowValue) {
+    flowSlider.addEventListener('input', (e) => {
+      flowIntensity = parseFloat(e.target.value)
+      flowValue.textContent = flowIntensity.toFixed(1) + 'x'
+      updateURL()
+    })
+  } else {
+    console.error('Flow slider elements not found')
+  }
 
   // Mouse influence control
   const mouseSlider = document.getElementById('mouse-slider')
   const mouseValue = document.getElementById('mouse-value')
-  mouseSlider.addEventListener('input', (e) => {
-    mouseInfluence = parseFloat(e.target.value)
-    mouseValue.textContent = mouseInfluence.toFixed(1) + 'x'
-  })
+  if (mouseSlider && mouseValue) {
+    mouseSlider.addEventListener('input', (e) => {
+      mouseInfluence = parseFloat(e.target.value)
+      mouseValue.textContent = mouseInfluence.toFixed(1) + 'x'
+      updateURL()
+    })
+  } else {
+    console.error('Mouse slider elements not found')
+  }
+
+  // Scale control
+  const scaleSlider = document.getElementById('scale-slider')
+  const scaleValue = document.getElementById('scale-value')
+  if (scaleSlider && scaleValue) {
+    scaleSlider.addEventListener('input', (e) => {
+      currentScale = parseFloat(e.target.value)
+      scaleValue.textContent = currentScale.toFixed(1)
+      // Regenerate the vector field with the new scale
+      if (vectorField && state.fn) {
+        vectorField = createEnhancedVectorField(state.fn)
+      }
+      updateURL()
+    })
+  } else {
+    console.error('Scale slider elements not found')
+  }
 
   // Save/Load controls
   const functionNameInput = document.getElementById('function-name-input')
@@ -1106,4 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize the dropdown
   updateFunctionDropdown()
+
+  // Initialize slider UI with current values
+  updateSlidersFromValues()
 })
