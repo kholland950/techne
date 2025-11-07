@@ -4,7 +4,8 @@ function setup() {
 }
 
 function draw() {
-    // Example: draw a circle that follows the mouse
+    // Draw a circle that follows the mouse
+    // Circles accumulate to create a drawing/painting effect
     fill(random(255), random(255), random(255), 100);
     noStroke();
     circle(mouseX, mouseY, 50);
