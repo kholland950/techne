@@ -104,22 +104,22 @@ const fList = [
   new SingleArgumentFunction((a) => `Math.log(Math.abs(${a}))`, 'EXP'),
   new SingleArgumentFunction((a) => `Math.sqrt(Math.abs(${a}))`, 'EXP'),
 
-  new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
-  new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
+  // new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
+  // new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
 
-  new DualArgumentFunction((a, b) => {
-    if (a === b) return a
-    return `Math.min(${a},${b})`
-  }, 'MINMAX'),
-  new DualArgumentFunction((a, b) => {
-    if (a === b) return a
-    return `Math.max(${a},${b})`
-  }, 'MINMAX'),
+  // new DualArgumentFunction((a, b) => {
+  //   if (a === b) return a
+  //   return `Math.min(${a},${b})`
+  // }, 'MINMAX'),
+  // new DualArgumentFunction((a, b) => {
+  //   if (a === b) return a
+  //   return `Math.max(${a},${b})`
+  // }, 'MINMAX'),
 
-  new SingleArgumentFunction(
-    (a) => `Math.round(${a}) % 2 === 0 ? ${a} : ${a} + 1`,
-    'EVENODD'
-  ),
+  // new SingleArgumentFunction(
+  //   (a) => `Math.round(${a}) % 2 === 0 ? ${a} : ${a} + 1`,
+  //   'EVENODD'
+  // ),
 
   // new ConstantFunction('1.', cfProb * 0.001),
 ]
