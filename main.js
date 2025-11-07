@@ -127,6 +127,7 @@ let lastPanPosition = { x: 0, y: 0 }
 // Current function storage
 let currentFunctionCode = null
 let currentFunctionName = null
+let currentSeed = null
 
 // Global reference to createEnhancedVectorField function
 let createEnhancedVectorFieldGlobal = null
@@ -197,7 +198,15 @@ function initPixiApp() {
   }
 
   // Initialize the simulation
-  initSimulation()
+  // Load from URL if available, otherwise generate random function
+  if (!loadFromURL()) {
+    initSimulation()
+  }
+
+  // Listen for hash changes to support back/forward navigation
+  window.addEventListener('hashchange', () => {
+    loadFromURL()
+  })
 
   // Start the render loop
   app.ticker.add(gameLoop)
@@ -212,10 +221,13 @@ function initPixiApp() {
   })
 }
 
-function initSimulation() {
-  const functionCode = generateFunction()
+function initSimulation(seed = null) {
+  // Generate or use provided seed
+  currentSeed = seed || Math.floor(Math.random() * 1000000)
+
+  const functionCode = generateFunction(currentSeed)
   const fn = compileVectorFieldFunction(functionCode)
-  console.log('Generated vector field function:', fn)
+  console.log('Generated vector field function with seed:', currentSeed, fn)
 
   // Store current function code for saving
   currentFunctionCode = functionCode
@@ -689,15 +701,17 @@ function setupEventHandlers() {
     if (event.code === 'Space') {
       event.preventDefault()
       // Generate new vector field but keep existing particles
-      const functionCode = generateFunction()
+      currentSeed = Math.floor(Math.random() * 1000000)
+      const functionCode = generateFunction(currentSeed)
       const fn = compileVectorFieldFunction(functionCode)
-      console.log('Generated vector field function:', fn)
+      console.log('Generated vector field function with seed:', currentSeed, fn)
       vectorField = createEnhancedVectorField(fn)
       state.fn = fn
       state.functionCode = functionCode
       currentFunctionCode = functionCode
       currentFunctionName = null
       drawBackground()
+      updateURL() // Update URL with new seed
     } else if (event.key === 'r') {
       // Reset all particles
       for (let particle of particles) {
@@ -722,15 +736,17 @@ function setupEventHandlers() {
 
   // Custom events for UI controls
   document.addEventListener('newField', () => {
-    const functionCode = generateFunction()
+    currentSeed = Math.floor(Math.random() * 1000000)
+    const functionCode = generateFunction(currentSeed)
     const fn = compileVectorFieldFunction(functionCode)
-    console.log('Generated vector field function:', fn)
+    console.log('Generated vector field function with seed:', currentSeed, fn)
     vectorField = createEnhancedVectorField(fn)
     state.fn = fn
     state.functionCode = functionCode
     currentFunctionCode = functionCode
     currentFunctionName = null
     drawBackground()
+    updateURL() // Update URL with new seed
   })
 
   document.addEventListener('clearScreen', () => {
@@ -937,6 +953,88 @@ function deleteSelectedFunction() {
 window.saveCurrentFunction = saveCurrentFunction
 window.loadSelectedFunction = loadSelectedFunction
 window.deleteSelectedFunction = deleteSelectedFunction
+
+// Seed-based URL Sharing functionality
+function generateShareableURL() {
+  if (currentSeed === null) {
+    alert('No function to share. Generate a new field first.')
+    return ''
+  }
+
+  try {
+    const url = `${window.location.origin}${window.location.pathname}#${currentSeed}`
+    return url
+  } catch (error) {
+    console.error('Failed to generate shareable URL:', error)
+    alert('Failed to generate shareable URL')
+    return ''
+  }
+}
+
+function copyShareableURL() {
+  const url = generateShareableURL()
+  if (!url) return
+
+  navigator.clipboard
+    .writeText(url)
+    .then(() => {
+      // Show temporary feedback
+      const button = document.getElementById('share-button')
+      if (button) {
+        const originalText = button.textContent
+        button.textContent = 'Copied!'
+        button.style.background = 'rgba(80, 160, 120, 0.4)'
+
+        setTimeout(() => {
+          button.textContent = originalText
+          button.style.background = ''
+        }, 2000)
+      }
+    })
+    .catch(() => {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+
+      alert('URL copied to clipboard!')
+    })
+}
+
+function loadFromURL() {
+  const hash = window.location.hash.slice(1)
+  if (!hash) return false
+
+  try {
+    const seed = parseInt(hash)
+    if (isNaN(seed)) return false
+
+    console.log('Loading seed from URL:', seed)
+    initSimulation(seed)
+    return true
+  } catch (error) {
+    console.error('Failed to load from URL:', error)
+    return false
+  }
+}
+
+function updateURL() {
+  if (currentSeed === null) return
+
+  try {
+    const newURL = `${window.location.pathname}#${currentSeed}`
+    history.replaceState(null, '', newURL)
+  } catch (error) {
+    console.error('Failed to update URL:', error)
+  }
+}
+
+// Make URL sharing functions available globally
+window.copyShareableURL = copyShareableURL
+window.generateShareableURL = generateShareableURL
 
 // Setup control listeners
 document.addEventListener('DOMContentLoaded', () => {

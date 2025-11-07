@@ -83,8 +83,8 @@ class ConstantFunction extends BaseFunctionNode {
 }
 
 const fList = [
-  new ConstantFunction('p.x', 'POINT'),
-  new ConstantFunction('p.y', 'POINT'),
+  // new ConstantFunction('p.x', 'POINT'),
+  // new ConstantFunction('p.y', 'POINT'),
 
   new ConstantFunction('Math.sqrt(p.x*p.x + p.y * p.y)', 'LENGTH'),
 
@@ -104,8 +104,8 @@ const fList = [
   new SingleArgumentFunction((a) => `Math.log(Math.abs(${a}))`, 'EXP'),
   new SingleArgumentFunction((a) => `Math.sqrt(Math.abs(${a}))`, 'EXP'),
 
-  // new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
-  // new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
+  new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
+  new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
 
   // new DualArgumentFunction((a, b) => {
   //   if (a === b) return a
@@ -149,10 +149,36 @@ function generateArguments() {
   return item.render()
 }
 
-export default function generate() {
+// Seeded random number generator (simple LCG)
+class SeededRandom {
+  constructor(seed) {
+    this.seed = seed % 2147483647
+    if (this.seed <= 0) this.seed += 2147483646
+  }
+
+  next() {
+    this.seed = (this.seed * 16807) % 2147483647
+    return (this.seed - 1) / 2147483646
+  }
+}
+
+// Store original Math.random for restoration
+const originalRandom = Math.random
+
+export default function generate(seed = null) {
+  if (seed !== null) {
+    // Use seeded random
+    const seededRNG = new SeededRandom(seed)
+    Math.random = () => seededRNG.next()
+  }
+
   normalizeProbabilities()
   const vX = generateArguments()
   const vY = generateArguments()
+
+  // Restore original Math.random
+  Math.random = originalRandom
+
   return `function getVelocity(p) {
     return {
       x: ${vX},
