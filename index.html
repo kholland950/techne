@@ -1,24 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Techne - 2D Art Generator</title>
+
+    <!-- Import map for better module resolution -->
+    <script type="importmap">
+      {
+        "imports": {
+          "p5": "https://esm.sh/p5@1.7.0",
+          "@anvaka/streamlines": "https://esm.sh/@anvaka/streamlines@1.6.0",
+          "uniqolor": "https://esm.sh/uniqolor@1.1.1",
+          "color2k": "https://esm.sh/color2k@2.0.3"
+        }
+      }
+    </script>
+
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-        canvas {
-            display: block;
-        }
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+      }
     </style>
-</head>
-<body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js" 
-            integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" 
-            crossorigin="anonymous"></script>
-    <script src="sketch.js"></script>
-</body>
+  </head>
+
+  <body>
+    <script src="main.js" type="module"></script>
+  </body>
 </html>
