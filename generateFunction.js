@@ -3,9 +3,9 @@
  * sometimes. Feel free to improve.
  */
 
-const cfProb = 10 // base probability to generate a point.
+var cfProb = 10 // base probability to generate a point.
 
-const probabilityClass = {
+var probabilityClass = {
   POINT: cfProb,
   LENGTH: cfProb * 0.5,
   TRIGONOMETRY: cfProb * 0.9,
@@ -13,7 +13,6 @@ const probabilityClass = {
   MINMAX: cfProb * 0.4,
   EXP: cfProb * 0.1,
   SIGN: cfProb * 0.01,
-  EVENODD: cfProb * 0.3,
 }
 
 class BaseFunctionNode {
@@ -38,12 +37,12 @@ class SingleArgumentFunction extends BaseFunctionNode {
   }
 
   render() {
-    let prevP = this.p
+    var prevP = this.p
 
-    prevP = this.getProbability()
+    var prevP = this.getProbability()
     probabilityClass[this.className] *= 0.25
     normalizeProbabilities()
-    const args = generateArguments()
+    let args = generateArguments()
     probabilityClass[this.className] = prevP
     normalizeProbabilities()
     return this.operator(args)
@@ -58,12 +57,12 @@ class DualArgumentFunction extends BaseFunctionNode {
 
   render() {
     // Decrease our probability to appear
-    const prevP = this.getProbability()
+    var prevP = this.getProbability()
     probabilityClass[this.className] *= 0.25
 
     normalizeProbabilities()
-    const left = generateArguments()
-    const right = generateArguments()
+    var left = generateArguments()
+    var right = generateArguments()
     // revert it back;
     probabilityClass[this.className] = prevP
     normalizeProbabilities()
@@ -82,7 +81,7 @@ class ConstantFunction extends BaseFunctionNode {
   }
 }
 
-const fList = [
+var fList = [
   new ConstantFunction('p.x', 'POINT'),
   new ConstantFunction('p.y', 'POINT'),
 
@@ -90,42 +89,35 @@ const fList = [
 
   new SingleArgumentFunction((a) => `Math.sin(${a})`, 'TRIGONOMETRY'),
   new SingleArgumentFunction((a) => `Math.cos(${a})`, 'TRIGONOMETRY'),
-  new SingleArgumentFunction(
-    (a) => `Math.sin(Math.cos(Math.tan(${a})))`,
-    'TRIGONOMETRY'
-  ),
-  new DualArgumentFunction((a, b) => `Math.sin(${a}/${b})`, 'TRIGONOMETRY'),
+  // new SingleArgumentFunction(a => `Math.sqrt(${a})`, cfProb * 0.8),
+  // new SingleArgumentFunction(a => `inversesqrt(${a})`, cfProb * 0.8),
 
   new DualArgumentFunction((a, b) => `${a}*${b}`, 'ARITHMETICS'),
   new DualArgumentFunction((a, b) => `${a}/${b}`, 'ARITHMETICS'),
   new DualArgumentFunction((a, b) => `(${a}+${b})`, 'ARITHMETICS'),
   new DualArgumentFunction((a, b) => `(${a}-${b})`, 'ARITHMETICS'),
 
-  new SingleArgumentFunction((a) => `Math.log(Math.abs(${a}))`, 'EXP'),
-  new SingleArgumentFunction((a) => `Math.sqrt(Math.abs(${a}))`, 'EXP'),
+  // new DualArgumentFunction((a, b) => {
+  //   if (a === b) return a;
+  //   return `Math.min(${a},${b})`
+  // }, 'MINMAX'),
+  // new DualArgumentFunction((a, b) => {
+  //   if (a === b) return a;
+  //   return `Math.max(${a},${b})`
+  // } , 'MINMAX'),
+
+  // new SingleArgumentFunction(a => `Math.log(Math.abs(${a}))`, 'EXP'),
+  // new SingleArgumentFunction(a => `Math.exp(${a})`, 'EXP'),
+  // new DualArgumentFunction((a, b) => `Math.pow(${a}, ${b})`, 'EXP'),
 
   new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
   new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
 
-  new DualArgumentFunction((a, b) => {
-    if (a === b) return a
-    return `Math.min(${a},${b})`
-  }, 'MINMAX'),
-  new DualArgumentFunction((a, b) => {
-    if (a === b) return a
-    return `Math.max(${a},${b})`
-  }, 'MINMAX'),
-
-  new SingleArgumentFunction(
-    (a) => `Math.round(${a}) % 2 === 0 ? ${a} : ${a} + 1`,
-    'EVENODD'
-  ),
-
-  // new ConstantFunction('1.', cfProb * 0.001),
+  //new ConstantFunction('1.', cfProb * 0.001),
 ]
 
 function normalizeProbabilities() {
-  let sum = 0
+  var sum = 0
   fList.forEach((element) => (sum += element.getProbability()))
   fList.forEach(
     (element) => (element.probability = element.getProbability() / sum)
@@ -133,10 +125,10 @@ function normalizeProbabilities() {
 }
 
 function generateArguments() {
-  const p = Math.random()
-  let cumulativeProbability = 0
-  let item
-  for (let i = 0; i < fList.length; ++i) {
+  var p = Math.random()
+  var cumulativeProbability = 0
+  var item
+  for (var i = 0; i < fList.length; ++i) {
     item = fList[i]
     cumulativeProbability += item.probability
     if (p < cumulativeProbability) {
@@ -148,6 +140,18 @@ function generateArguments() {
 
   return item.render()
 }
+
+// export default function generate() {
+//   normalizeProbabilities();
+//   var vX = generateArguments();
+//   var vY = generateArguments();
+//   return `function getVelocity(p) {
+//     return {
+//       x: ${vX},
+//       y: ${vY}
+//     };
+//   }`;
+// }
 
 // Seeded random number generator (simple LCG)
 class SeededRandom {

@@ -35,26 +35,32 @@ class LongExposureFilter extends PIXI.Filter {
       uniform float uThreshold;
       
       void main(void) {
-        vec4 currentFrame = texture2D(uSampler, vTextureCoord);
-        vec4 accumulated = texture2D(uAccumulator, vTextureCoord);
+      vec4 currentFrame = texture2D(uSampler, vTextureCoord);
+      vec4 accumulated = texture2D(uAccumulator, vTextureCoord);
+      
+      if (uClear) {
+        gl_FragColor = currentFrame;
+      } else {
+        // Blend current frame with accumulated history
+        vec4 blended = accumulated * uDecay + currentFrame * uIntensity;
         
-        if (uClear) {
-          gl_FragColor = currentFrame;
-        } else {
-          // Blend current frame with accumulated history
-          vec4 blended = accumulated * uDecay + currentFrame * uIntensity;
-          
-          // Apply threshold to prevent infinite trails
-          // If the blended result is below threshold, clear it to background color
-          float luminance = dot(blended.rgb, vec3(0.299, 0.587, 0.114));
-          if (luminance < uThreshold) {
-            // Background color: 0x080c14 = rgb(8, 12, 20)
-            // blended = vec4(0.0, 0.0, 0.0, 0.0);
-            blended = vec4(4.0 / 255.0, 4.0 / 255.0, 16.0 / 255.0, 1.0);
-          }
-
-          gl_FragColor = blended;
+        // Calculate luminance
+        float luminance = dot(blended.rgb, vec3(0.299, 0.587, 0.114));
+        
+        // Apply threshold to prevent infinite trails
+        if (luminance < uThreshold) {
+        // Background color: 0x080c14 = rgb(8, 12, 20)
+        blended = vec4(4.0 / 255.0, 4.0 / 255.0, 16.0 / 255.0, 1.0);
         }
+        
+        // Clamp luminance to a reasonable maximum (e.g., 0.8)
+        if (luminance > 0.8) {
+        float scale = 0.8 / luminance;
+        blended.rgb *= scale;
+        }
+
+        gl_FragColor = blended;
+      }
       }
     `
 
@@ -209,7 +215,7 @@ const utils = {
   generateBrightColor: () => {
     return uniqolor.random({
       saturation: [30, 60],
-      lightness: [30, 55],
+      lightness: [10, 25],
     }).color
   },
 }
@@ -255,7 +261,7 @@ let showVectorField = true
 let longExposureFilter = null
 let longExposureDecay = 0.8 // How much the previous frame persists
 let longExposureIntensity = 1 // How much the current frame contributes
-let longExposureThreshold = 0.2 // Luminance threshold for clearing trails
+let longExposureThreshold = 0.15 // Luminance threshold for clearing trails
 
 // Current function storage
 let currentFunctionCode = null
@@ -511,6 +517,13 @@ async function updateParticles(deltaTime = 1) {
         particle.x = utils.random(app.screen.width)
         particle.y = utils.random(app.screen.height)
         particle.trail = []
+      } else if (deltaX < 0.05 && deltaY < 0.05) {
+        particle.x = utils.random(app.screen.width)
+        particle.y = utils.random(app.screen.height)
+        particle.color = utils.generateBrightColor()
+        particle.life = utils.random(0.7, 1.0)
+        particle.speed = utils.random(0.6, 2.5)
+        particle.age = 0
       }
 
       // Remove particles that go too far off-screen for performance
@@ -549,7 +562,6 @@ async function updateParticles(deltaTime = 1) {
       particle.age++
       particle.life -= 0.001 * timeMultiplier
       if (particle.life <= 0) {
-        // Respawn particle and ensure trail is completely cleared
         particle.x = utils.random(app.screen.width)
         particle.y = utils.random(app.screen.height)
         particle.color = utils.generateBrightColor()
@@ -661,9 +673,7 @@ function drawParticles() {
 
           // Only draw line if distance is reasonable (prevents long lines across screen)
           if (distance < 50 && distance > 0) {
-            const weight = utils.map(i, 0, particle.trail.length, 1.5, 4.5) // Increased thickness from 0.3-2.5 to 1.5-4.5
-
-            particleGraphics.lineStyle(weight, col)
+            particleGraphics.lineStyle(2.5, col)
             particleGraphics.moveTo(prev.x, prev.y)
             particleGraphics.lineTo(curr.x, curr.y)
           }
