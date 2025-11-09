@@ -248,6 +248,7 @@ let maxTrailLength = 3
 // Control variables
 let flowIntensity = 4.0
 let controlsVisible = true
+let showVectorField = true
 
 // Long exposure effect controls
 let longExposureFilter = null
@@ -314,6 +315,8 @@ function initPixiApp() {
   if (!loadFromURL()) {
     initSimulation()
   }
+
+  loadFromStorage()
 
   // Add filters for visual effects
   try {
@@ -615,7 +618,10 @@ function drawBackground() {
 
 function drawVectorField() {
   // Clear the persistent graphics object instead of creating new ones
+
   vectorFieldGraphics.clear()
+
+  if (!showVectorField) return
 
   // Draw vector field as arrows (sparsely for performance)
   const step = 60
@@ -1051,6 +1057,10 @@ function copyShareableURL() {
     })
 }
 
+function loadFromStorage() {
+  showVectorField = localStorage.getItem('showVectorField') === 'true'
+}
+
 function loadFromURL() {
   const hash = window.location.hash.slice(1)
   if (!hash) return false
@@ -1138,6 +1148,12 @@ function updateSlidersFromValues() {
     scaleSlider.value = currentScale
     scaleValue.textContent = currentScale.toFixed(1)
   }
+
+  // Show vector field toggle
+  const showFieldToggle = document.getElementById('show-field-toggle')
+  if (showFieldToggle) {
+    showFieldToggle.checked = showVectorField
+  }
 }
 
 function updateURL() {
@@ -1221,6 +1237,17 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   } else {
     console.error('Scale slider elements not found')
+  }
+
+  // Show vector field toggle
+  const showFieldToggle = document.getElementById('show-field-toggle')
+  if (showFieldToggle) {
+    showFieldToggle.addEventListener('change', (e) => {
+      showVectorField = e.target.checked
+      localStorage.setItem('showVectorField', showVectorField)
+    })
+  } else {
+    console.error('Show field toggle element not found')
   }
 
   // Save/Load controls
