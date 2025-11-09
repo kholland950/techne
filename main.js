@@ -2,6 +2,7 @@
 import * as PIXI from 'pixi.js'
 import { BloomFilter } from '@pixi/filter-bloom'
 import { AdjustmentFilter } from '@pixi/filter-adjustment'
+import { CRTFilter } from '@pixi/filter-crt'
 import uniqolor from 'uniqolor'
 
 import { createNoise2D } from 'simplex-noise'
@@ -49,7 +50,7 @@ class LongExposureFilter extends PIXI.Filter {
           if (luminance < uThreshold) {
             // Background color: 0x080c14 = rgb(8, 12, 20)
             // blended = vec4(0.0, 0.0, 0.0, 0.0);
-            blended = vec4(4.0 / 255.0, 4.0 / 255.0, 12.0 / 255.0, 1.0);
+            blended = vec4(4.0 / 255.0, 4.0 / 255.0, 16.0 / 255.0, 1.0);
           }
 
           gl_FragColor = blended;
@@ -336,10 +337,11 @@ function initPixiApp() {
       longExposureFilter,
       bloomFilter,
       new AdjustmentFilter({
-        brightness: 1.2,
-        saturation: 1.3,
+        brightness: 1.3,
+        saturation: 1.4,
         contrast: 1.05,
       }),
+      new CRTFilter(),
     ]
 
     app.stage.filters = stageFilters
