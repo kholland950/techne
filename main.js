@@ -242,11 +242,11 @@ function getVelocity(p) {
 let state = {}
 let vectorField = null
 let particles = []
-let numParticles = 1000
+let ambientParticleCount = 1000 // Ambient particles on screen at one time
 let maxTrailLength = 3
 
 // Control variables
-let flowIntensity = 4.0
+let flowIntensity = 8.0
 let controlsVisible = true
 let showVectorField = true
 
@@ -388,7 +388,7 @@ function initSimulation(seed = null) {
 
   // Initialize particles
   particles = []
-  for (let i = 0; i < numParticles; i++) {
+  for (let i = 0; i < ambientParticleCount; i++) {
     particles.push({
       x: utils.random(app.screen.width),
       y: utils.random(app.screen.height),
@@ -458,46 +458,13 @@ function createEnhancedVectorField(baseFn) {
     const timeInfluenceX = 1
     const timeInfluenceY = 1
 
-    // Add mouse influence with noise-based variation
-    const mouseX = mousePos.x || app.screen.width / 2
-    const mouseY = mousePos.y || app.screen.height / 2
-    const distToMouse = utils.dist(x, y, mouseX, mouseY)
-    const maxMouseInfluence = Math.min(app.screen.width, app.screen.height) * 2
-
-    // Modulate mouse influence with noise for more organic feel
-    const mouseNoiseInfluence =
-      utils.noise(time * 0.3, distToMouse * 0.01) * 0.5 + 0.5
-    const mouseInfluenceStrength = utils.map(
-      utils.constrain(distToMouse, 0, maxMouseInfluence),
-      0,
-      maxMouseInfluence,
-      0.9 * mouseNoiseInfluence,
-      0.1 * mouseNoiseInfluence
-    )
-
-    // Create attractive and swirling motion around mouse with noise variation
-    const mouseVecX = (mouseX - x) * 0.0005
-    const mouseVecY = (mouseY - y) * 0.0005
-    // Add perpendicular component for swirling with noise modulation
-    const swirl = utils.noise(time * 0.5, x * 0.001, y * 0.001) * 2 - 1
-    const perpMouseX = -mouseVecY * (0.5 + swirl * 0.3)
-    const perpMouseY = mouseVecX * (0.5 + swirl * 0.3)
-
     // Dynamic scaling based on global activity
     const globalActivity = Math.sin(time * 0.1) * 0.2 + 0.8
     const scale = 8 * globalActivity * breathe * flowIntensity
 
     // Combine all influences
-    let resultX =
-      (baseVec.x +
-        timeInfluenceX +
-        (mouseVecX + perpMouseX) * mouseInfluenceStrength) *
-      scale
-    let resultY =
-      (baseVec.y +
-        timeInfluenceY +
-        (mouseVecY + perpMouseY) * mouseInfluenceStrength) *
-      scale
+    let resultX = (baseVec.x + timeInfluenceX) * scale
+    let resultY = (baseVec.y + timeInfluenceY) * scale
 
     // Final safety clamp to prevent extreme velocities
     resultX = utils.constrain(resultX, -60, 60)
@@ -526,9 +493,11 @@ async function updateParticles(deltaTime = 1) {
       const prevX = particle.x
       const prevY = particle.y
 
+      const speedMultipler = flowIntensity * 0.1
+
       // Update position with delta time compensation
-      particle.x += force.x * particle.speed * 0.5 * timeMultiplier
-      particle.y += force.y * particle.speed * 0.5 * timeMultiplier
+      particle.x += force.x * particle.speed * speedMultipler * timeMultiplier
+      particle.y += force.y * particle.speed * speedMultipler * timeMultiplier
 
       // Check for extreme position changes that would cause long lines
       const deltaX = Math.abs(particle.x - prevX)
@@ -596,7 +565,7 @@ async function updateParticles(deltaTime = 1) {
   particles = particlesToKeep
 
   // Spawn new particles to maintain the target count if we're below minimum
-  while (particles.length < numParticles) {
+  while (particles.length < ambientParticleCount) {
     particles.push({
       x: utils.random(app.screen.width),
       y: utils.random(app.screen.height),
@@ -744,11 +713,6 @@ function spawnParticlesAtMouse(numToSpawn = 8) {
       age: 0,
     })
   }
-
-  // Remove oldest particles to maintain performance
-  if (particles.length > numParticles * 3) {
-    particles.splice(0, particles.length - numParticles * 2)
-  }
 }
 
 function setupEventHandlers() {
@@ -812,17 +776,6 @@ function toggleControls() {
   }
 }
 
-function resetParticles() {
-  // Trigger 'r' key functionality
-  for (let particle of particles) {
-    particle.x = utils.random(app.screen.width)
-    particle.y = utils.random(app.screen.height)
-    particle.trail = []
-    particle.life = utils.random(0.7, 1.0)
-    particle.age = 0
-  }
-}
-
 function newField() {
   // Trigger space key functionality - need to access the p5 instance
   // This will be handled by a custom event
@@ -836,7 +789,6 @@ function clearScreen() {
 
 // Make functions available globally for onclick handlers
 window.toggleControls = toggleControls
-window.resetParticles = resetParticles
 window.newField = newField
 window.clearScreen = clearScreen
 
@@ -1009,7 +961,7 @@ function generateShareableURL() {
     // Format: #seed,particles,trail,flow,scale
     const params = [
       currentSeed,
-      numParticles,
+      ambientParticleCount,
       flowIntensity,
       currentScale,
       longExposureDecay,
@@ -1079,7 +1031,7 @@ function loadFromURL() {
 
         if (isNaN(seed)) return false
 
-        numParticles = !isNaN(particles) ? particles : 300
+        ambientParticleCount = !isNaN(particles) ? particles : 300
         flowIntensity = !isNaN(flow) ? flow : 4.0
         longExposureDecay = !isNaN(exposure) ? exposure : 0.95
         currentScale = !isNaN(scale) ? scale : 4.0
@@ -1121,8 +1073,8 @@ function updateSlidersFromValues() {
   const countSlider = document.getElementById('count-slider')
   const countValue = document.getElementById('count-value')
   if (countSlider && countValue) {
-    countSlider.value = numParticles
-    countValue.textContent = numParticles.toString()
+    countSlider.value = ambientParticleCount
+    countValue.textContent = ambientParticleCount.toString()
   }
 
   // Exposure
@@ -1163,7 +1115,7 @@ function updateURL() {
     // Format: #seed,particles,flow,scale
     const params = [
       currentSeed,
-      numParticles,
+      ambientParticleCount,
       flowIntensity,
       currentScale,
       longExposureDecay,
@@ -1187,8 +1139,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const countValue = document.getElementById('count-value')
   if (countSlider && countValue) {
     countSlider.addEventListener('input', (e) => {
-      numParticles = parseInt(e.target.value)
-      countValue.textContent = numParticles.toString()
+      ambientParticleCount = parseInt(e.target.value)
+      countValue.textContent = ambientParticleCount.toString()
       updateURL()
     })
   } else {
