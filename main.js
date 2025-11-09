@@ -49,7 +49,7 @@ class LongExposureFilter extends PIXI.Filter {
           if (luminance < uThreshold) {
             // Background color: 0x080c14 = rgb(8, 12, 20)
             // blended = vec4(0.0, 0.0, 0.0, 0.0);
-            blended = vec4(1.0 / 255.0, 2.0 / 255.0, 4.0 / 255.0, 1.0);
+            blended = vec4(4.0 / 255.0, 4.0 / 255.0, 12.0 / 255.0, 1.0);
           }
 
           gl_FragColor = blended;
@@ -207,8 +207,8 @@ const utils = {
   // Generate brighter, more vibrant colors
   generateBrightColor: () => {
     return uniqolor.random({
-      saturation: [70, 100],
-      lightness: [60, 80],
+      saturation: [30, 60],
+      lightness: [30, 55],
     }).color
   },
 }
@@ -253,7 +253,7 @@ let controlsVisible = true
 let longExposureFilter = null
 let longExposureDecay = 0.8 // How much the previous frame persists
 let longExposureIntensity = 1 // How much the current frame contributes
-let longExposureThreshold = 0.3 // Luminance threshold for clearing trails
+let longExposureThreshold = 0.2 // Luminance threshold for clearing trails
 
 // Current function storage
 let currentFunctionCode = null
@@ -309,6 +309,12 @@ function initPixiApp() {
   vectorFieldContainer.addChild(vectorFieldGraphics)
   particleContainer.addChild(particleGraphics)
 
+  // Initialize the simulation
+  // Load from URL if available, otherwise generate random function
+  if (!loadFromURL()) {
+    initSimulation()
+  }
+
   // Add filters for visual effects
   try {
     const bloomFilter = new BloomFilter()
@@ -327,21 +333,15 @@ function initPixiApp() {
       longExposureFilter,
       bloomFilter,
       new AdjustmentFilter({
-        brightness: 1,
-        saturation: 1.5,
-        contrast: 1,
+        brightness: 1.2,
+        saturation: 1.3,
+        contrast: 1.05,
       }),
     ]
 
     app.stage.filters = stageFilters
   } catch (error) {
     console.warn('Failed to apply filters:', error)
-  }
-
-  // Initialize the simulation
-  // Load from URL if available, otherwise generate random function
-  if (!loadFromURL()) {
-    initSimulation()
   }
 
   // Listen for hash changes to support back/forward navigation
