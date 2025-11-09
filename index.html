@@ -295,32 +295,16 @@
 
     <div class="controls" id="controls">
       <h3>Particle Controls</h3>
-
-      <div class="control-group">
-        <label>
-          Particle Speed
-          <span class="value-display" id="speed-value">2.0x</span>
-        </label>
-        <input
-          type="range"
-          id="speed-slider"
-          min="0.1"
-          max="3.0"
-          step="0.1"
-          value="2.0"
-        />
-      </div>
-
       <div class="control-group">
         <label>
           Particle Count
-          <span class="value-display" id="count-value">300</span>
+          <span class="value-display" id="count-value"></span>
         </label>
         <input
           type="range"
           id="count-slider"
           min="50"
-          max="800"
+          max="5000"
           step="50"
           value="300"
         />
@@ -328,29 +312,14 @@
 
       <div class="control-group">
         <label>
-          Trail Length
-          <span class="value-display" id="trail-value">20</span>
-        </label>
-        <input
-          type="range"
-          id="trail-slider"
-          min="5"
-          max="50"
-          step="5"
-          value="20"
-        />
-      </div>
-
-      <div class="control-group">
-        <label>
           Flow Intensity
-          <span class="value-display" id="flow-value">2.0x</span>
+          <span class="value-display" id="flow-value"></span>
         </label>
         <input
           type="range"
           id="flow-slider"
           min="0.2"
-          max="10.0"
+          max="20.0"
           step="0.1"
           value="2.0"
         />
@@ -358,23 +327,23 @@
 
       <div class="control-group">
         <label>
-          Mouse Influence
-          <span class="value-display" id="mouse-value">1.0x</span>
+          Exposure
+          <span class="value-display" id="exposure-value"></span>
         </label>
         <input
           type="range"
-          id="mouse-slider"
-          min="0.0"
-          max="2.0"
-          step="0.1"
-          value="1.0"
+          id="exposure-slider"
+          min="0.2"
+          max="0.95"
+          step="0.01"
+          value="0.8"
         />
       </div>
 
       <div class="control-group">
         <label>
           Scale (Zoom)
-          <span class="value-display" id="scale-value">5.0</span>
+          <span class="value-display" id="scale-value"></span>
         </label>
         <input
           type="range"
@@ -387,15 +356,8 @@
       </div>
 
       <div class="button-group">
-        <button class="control-button" onclick="resetParticles()">
-          Reset (R)
-        </button>
-        <button class="control-button" onclick="newField()">
-          New Field (Space)
-        </button>
-        <button class="control-button" onclick="clearScreen()">
-          Clear (C)
-        </button>
+        <button class="control-button" onclick="resetParticles()">Reset</button>
+        <button class="control-button" onclick="newField()">New Field</button>
         <button
           class="control-button"
           id="share-button"

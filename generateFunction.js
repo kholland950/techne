@@ -83,8 +83,8 @@ class ConstantFunction extends BaseFunctionNode {
 }
 
 const fList = [
-  // new ConstantFunction('p.x', 'POINT'),
-  // new ConstantFunction('p.y', 'POINT'),
+  new ConstantFunction('p.x', 'POINT'),
+  new ConstantFunction('p.y', 'POINT'),
 
   new ConstantFunction('Math.sqrt(p.x*p.x + p.y * p.y)', 'LENGTH'),
 
@@ -107,19 +107,19 @@ const fList = [
   new SingleArgumentFunction((a) => `Math.abs(${a})`, 'SIGN'),
   new SingleArgumentFunction((a) => `Math.sign(${a})`, 'SIGN'),
 
-  // new DualArgumentFunction((a, b) => {
-  //   if (a === b) return a
-  //   return `Math.min(${a},${b})`
-  // }, 'MINMAX'),
-  // new DualArgumentFunction((a, b) => {
-  //   if (a === b) return a
-  //   return `Math.max(${a},${b})`
-  // }, 'MINMAX'),
+  new DualArgumentFunction((a, b) => {
+    if (a === b) return a
+    return `Math.min(${a},${b})`
+  }, 'MINMAX'),
+  new DualArgumentFunction((a, b) => {
+    if (a === b) return a
+    return `Math.max(${a},${b})`
+  }, 'MINMAX'),
 
-  // new SingleArgumentFunction(
-  //   (a) => `Math.round(${a}) % 2 === 0 ? ${a} : ${a} + 1`,
-  //   'EVENODD'
-  // ),
+  new SingleArgumentFunction(
+    (a) => `Math.round(${a}) % 2 === 0 ? ${a} : ${a} + 1`,
+    'EVENODD'
+  ),
 
   // new ConstantFunction('1.', cfProb * 0.001),
 ]

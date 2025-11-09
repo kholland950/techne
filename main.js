@@ -1,14 +1,160 @@
 // Import using shorter names from import map
 import * as PIXI from 'pixi.js'
 import { BloomFilter } from '@pixi/filter-bloom'
-import { MotionBlurFilter } from '@pixi/filter-motion-blur'
 import { AdjustmentFilter } from '@pixi/filter-adjustment'
+import uniqolor from 'uniqolor'
 
 import { createNoise2D } from 'simplex-noise'
 
 // import generateNoise from './generateNoise.js'
 import generateFunction from './generateFunction.js'
-import uniqolor from 'uniqolor'
+
+// Custom Long Exposure Filter
+class LongExposureFilter extends PIXI.Filter {
+  constructor() {
+    const vertex = `
+      attribute vec2 aVertexPosition;
+      attribute vec2 aTextureCoord;
+      uniform mat3 projectionMatrix;
+      varying vec2 vTextureCoord;
+      
+      void main(void) {
+        gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+        vTextureCoord = aTextureCoord;
+      }
+    `
+
+    const fragment = `
+      varying vec2 vTextureCoord;
+      uniform sampler2D uSampler;
+      uniform sampler2D uAccumulator;
+      uniform float uDecay;
+      uniform float uIntensity;
+      uniform bool uClear;
+      uniform float uThreshold;
+      
+      void main(void) {
+        vec4 currentFrame = texture2D(uSampler, vTextureCoord);
+        vec4 accumulated = texture2D(uAccumulator, vTextureCoord);
+        
+        if (uClear) {
+          gl_FragColor = currentFrame;
+        } else {
+          // Blend current frame with accumulated history
+          vec4 blended = accumulated * uDecay + currentFrame * uIntensity;
+          
+          // Apply threshold to prevent infinite trails
+          // If the blended result is below threshold, clear it to background color
+          float luminance = dot(blended.rgb, vec3(0.299, 0.587, 0.114));
+          if (luminance < uThreshold) {
+            // Background color: 0x080c14 = rgb(8, 12, 20)
+            // blended = vec4(0.0, 0.0, 0.0, 0.0);
+            blended = vec4(1.0 / 255.0, 2.0 / 255.0, 4.0 / 255.0, 1.0);
+          }
+
+          gl_FragColor = blended;
+        }
+      }
+    `
+
+    super(vertex, fragment)
+
+    // Create accumulator texture
+    this.accumulatorTexture = null
+    this.accumulatorSprite = null
+    this.tempRenderTexture = null
+
+    // Shader uniforms
+    this.uniforms.uDecay = 0.5 // How much the previous frame persists (0.0 = no persistence, 1.0 = infinite)
+    this.uniforms.uIntensity = 0.5 // How much the current frame contributes
+    this.uniforms.uClear = false
+    this.uniforms.uThreshold = 0.01 // Luminance threshold below which pixels are cleared to black
+  }
+
+  // Initialize textures when we know the renderer size
+  initTextures(renderer) {
+    if (!this.accumulatorTexture) {
+      this.accumulatorTexture = PIXI.RenderTexture.create({
+        width: renderer.width,
+        height: renderer.height,
+      })
+      this.tempRenderTexture = PIXI.RenderTexture.create({
+        width: renderer.width,
+        height: renderer.height,
+      })
+      this.accumulatorSprite = new PIXI.Sprite(this.accumulatorTexture)
+    }
+  }
+
+  apply(filterManager, input, output, clearMode) {
+    this.initTextures(filterManager.renderer)
+
+    // Set the accumulator texture uniform
+    this.uniforms.uAccumulator = this.accumulatorTexture
+
+    // Apply the shader: blend current input frame with accumulator
+    filterManager.applyFilter(this, input, this.tempRenderTexture, clearMode)
+
+    // Update accumulator with the blended result for next frame
+    filterManager.renderer.render(new PIXI.Sprite(this.tempRenderTexture), {
+      renderTexture: this.accumulatorTexture,
+      clear: false,
+    })
+
+    // Copy the result to output
+    filterManager.renderer.render(new PIXI.Sprite(this.tempRenderTexture), {
+      renderTexture: output,
+      clear: true,
+    })
+  }
+
+  // Setter methods for easy control
+  set decay(value) {
+    this.uniforms.uDecay = value
+  }
+
+  get decay() {
+    return this.uniforms.uDecay
+  }
+
+  set intensity(value) {
+    this.uniforms.uIntensity = value
+  }
+
+  get intensity() {
+    return this.uniforms.uIntensity
+  }
+
+  set threshold(value) {
+    this.uniforms.uThreshold = value
+  }
+
+  get threshold() {
+    return this.uniforms.uThreshold
+  }
+
+  // Clear the accumulator
+  clear() {
+    this.uniforms.uClear = true
+    // Reset flag after one frame
+    setTimeout(() => {
+      this.uniforms.uClear = false
+    }, 16)
+  }
+
+  destroy() {
+    if (this.accumulatorTexture) {
+      this.accumulatorTexture.destroy()
+    }
+    if (this.tempRenderTexture) {
+      this.tempRenderTexture.destroy()
+    }
+    if (this.accumulatorSprite) {
+      this.accumulatorSprite.destroy()
+    }
+    super.destroy()
+  }
+}
 
 // PIXI.js Application and utilities
 let app = null
@@ -60,24 +206,10 @@ const utils = {
 
   // Generate brighter, more vibrant colors
   generateBrightColor: () => {
-    const brightColors = [
-      '#FF6B6B', // Bright red
-      '#4ECDC4', // Bright teal
-      '#45B7D1', // Bright blue
-      '#96CEB4', // Bright green
-      '#FFEAA7', // Bright yellow
-      '#DDA0DD', // Bright purple
-      '#98D8C8', // Bright mint
-      '#F7DC6F', // Bright gold
-      '#BB8FCE', // Bright lavender
-      '#85C1E9', // Bright sky blue
-      '#F8C471', // Bright orange
-      '#82E0AA', // Bright light green
-      '#F1948A', // Bright salmon
-      '#85C1E9', // Bright cyan
-      '#D7BDE2', // Bright pink
-    ]
-    return brightColors[Math.floor(Math.random() * brightColors.length)]
+    return uniqolor.random({
+      saturation: [70, 100],
+      lightness: [60, 80],
+    }).color
   },
 }
 
@@ -110,23 +242,22 @@ function getVelocity(p) {
 let state = {}
 let vectorField = null
 let particles = []
-let numParticles = 300
-let maxTrailLength = 20
+let numParticles = 1000
+let maxTrailLength = 3
 
 // Control variables
-let speedMultiplier = 2.0
-let flowIntensity = 2.0
-let mouseInfluence = 1.0
+let flowIntensity = 4.0
 let controlsVisible = true
 
-// Camera/viewport variables
-let camera = { x: 0, y: 0, zoom: 1.0 }
-let isPanning = false
-let lastPanPosition = { x: 0, y: 0 }
+// Long exposure effect controls
+let longExposureFilter = null
+let longExposureDecay = 0.8 // How much the previous frame persists
+let longExposureIntensity = 1 // How much the current frame contributes
+let longExposureThreshold = 0.3 // Luminance threshold for clearing trails
 
 // Current function storage
 let currentFunctionCode = null
-let currentFunctionName = null
+let currentFunctionName
 let currentSeed = null
 let currentScale = 5.0 // Default scale value
 
@@ -178,24 +309,33 @@ function initPixiApp() {
   vectorFieldContainer.addChild(vectorFieldGraphics)
   particleContainer.addChild(particleGraphics)
 
-  // Add bloom effect
+  // Add filters for visual effects
   try {
     const bloomFilter = new BloomFilter()
-    bloomFilter.blur = 5
-    bloomFilter.quality = 2
-    bloomFilter.kernelSize = 5
+    bloomFilter.blur = 20
+    bloomFilter.quality = 30
+    bloomFilter.resolution = 32
 
-    app.stage.filters = [
-      new AdjustmentFilter({
-        brightness: 2,
-        saturation: 1.4,
-      }),
+    // Create long exposure filter
+    longExposureFilter = new LongExposureFilter()
+    longExposureFilter.decay = longExposureDecay
+    longExposureFilter.intensity = longExposureIntensity
+    longExposureFilter.threshold = longExposureThreshold
+
+    // Apply general filters to the entire stage
+    const stageFilters = [
+      longExposureFilter,
       bloomFilter,
-      new MotionBlurFilter([2, 2], 9),
+      new AdjustmentFilter({
+        brightness: 1,
+        saturation: 1.5,
+        contrast: 1,
+      }),
     ]
-    console.log('Bloom filter applied successfully')
+
+    app.stage.filters = stageFilters
   } catch (error) {
-    console.warn('Failed to apply bloom filter:', error)
+    console.warn('Failed to apply filters:', error)
   }
 
   // Initialize the simulation
@@ -304,62 +444,22 @@ function createEnhancedVectorField(baseFn) {
       baseVec = { x: 0, y: 0 }
     }
 
-    // Enhanced time-based influences with multiple frequencies
     const time = utils.millis() * 0.001
-    const slowTime = time * 0.2
-    const fastTime = time * 1.5
-
-    // Multi-layered Perlin noise for organic ebb and flow
-    const noiseScale = 0.003
-    const noiseX = x * noiseScale
-    const noiseY = y * noiseScale
-
-    // Large-scale flow patterns (slow, sweeping changes)
-    const perlinFlow1X = (utils.noise(noiseX + slowTime, noiseY) - 0.5) * 0.4
-    const perlinFlow1Y = (utils.noise(noiseX, noiseY + slowTime) - 0.5) * 0.4
-
-    // Medium-scale turbulence
-    const perlinFlow2X =
-      (utils.noise(noiseX * 3 + time * 0.7, noiseY * 3) - 0.5) * 0.25
-    const perlinFlow2Y =
-      (utils.noise(noiseX * 3, noiseY * 3 + time * 0.7) - 0.5) * 0.25
-
-    // Fine-scale detail (faster, more chaotic)
-    const perlinFlow3X =
-      (utils.noise(noiseX * 8 + fastTime, noiseY * 8) - 0.5) * 0.15
-    const perlinFlow3Y =
-      (utils.noise(noiseX * 8, noiseY * 8 + fastTime) - 0.5) * 0.15
-
-    // Sinusoidal waves with varying frequencies and phases
-    const wave1X = Math.sin(time * 0.3 + normX * 0.05 + normY * 0.02) * 0.2
-    const wave1Y = Math.cos(time * 0.4 + normY * 0.05 + normX * 0.02) * 0.2
-
-    const wave2X =
-      Math.sin(time * 0.8 + normX * 0.2 + utils.noise(time * 0.1) * 2) * 0.15
-    const wave2Y =
-      Math.cos(time * 0.6 + normY * 0.2 + utils.noise(time * 0.1 + 100) * 2) *
-      0.15
 
     // Global ebb and flow breathing effect
     const breathe = Math.sin(time * 0.15) * 0.3 + 0.7 // Oscillates between 0.4 and 1.0
-    const breathePhase = Math.cos(time * 0.12 + Math.PI * 0.25) * 0.2
-
-    // Combine all noise and wave influences
-    const totalNoiseX = perlinFlow1X + perlinFlow2X + perlinFlow3X
-    const totalNoiseY = perlinFlow1Y + perlinFlow2Y + perlinFlow3Y
-    const totalWaveX = wave1X + wave2X
-    const totalWaveY = wave1Y + wave2Y
 
     // Create organic time influence with breathing
-    const timeInfluenceX = (totalNoiseX + totalWaveX + breathePhase) * breathe
-    const timeInfluenceY = (totalNoiseY + totalWaveY + breathePhase) * breathe
+    // const timeInfluenceX = (totalNoiseX + totalWaveX + breathePhase) * breathe
+    // const timeInfluenceY = (totalNoiseY + totalWaveY + breathePhase) * breathe
+    const timeInfluenceX = 1
+    const timeInfluenceY = 1
 
     // Add mouse influence with noise-based variation
     const mouseX = mousePos.x || app.screen.width / 2
     const mouseY = mousePos.y || app.screen.height / 2
     const distToMouse = utils.dist(x, y, mouseX, mouseY)
-    const maxMouseInfluence =
-      Math.min(app.screen.width, app.screen.height) * 0.4
+    const maxMouseInfluence = Math.min(app.screen.width, app.screen.height) * 2
 
     // Modulate mouse influence with noise for more organic feel
     const mouseNoiseInfluence =
@@ -388,12 +488,12 @@ function createEnhancedVectorField(baseFn) {
     let resultX =
       (baseVec.x +
         timeInfluenceX +
-        (mouseVecX + perpMouseX) * mouseInfluenceStrength * mouseInfluence) *
+        (mouseVecX + perpMouseX) * mouseInfluenceStrength) *
       scale
     let resultY =
       (baseVec.y +
         timeInfluenceY +
-        (mouseVecY + perpMouseY) * mouseInfluenceStrength * mouseInfluence) *
+        (mouseVecY + perpMouseY) * mouseInfluenceStrength) *
       scale
 
     // Final safety clamp to prevent extreme velocities
@@ -407,9 +507,13 @@ function createEnhancedVectorField(baseFn) {
 // Make createEnhancedVectorField available globally
 createEnhancedVectorFieldGlobal = createEnhancedVectorField
 
-function updateParticles() {
+async function updateParticles(deltaTime = 1) {
   // Mark particles for removal instead of updating in-place
   const particlesToKeep = []
+
+  // Convert deltaTime to seconds and create a consistent time multiplier
+  // PIXI's deltaTime is in milliseconds at 60fps = ~16.67ms, so we normalize to 60fps
+  const timeMultiplier = deltaTime / 16.67 // Normalize to 60fps baseline
 
   for (let particle of particles) {
     if (vectorField) {
@@ -419,14 +523,14 @@ function updateParticles() {
       const prevX = particle.x
       const prevY = particle.y
 
-      // Update position with some damping and speed variation
-      particle.x += force.x * particle.speed * 0.035 * speedMultiplier
-      particle.y += force.y * particle.speed * 0.035 * speedMultiplier
+      // Update position with delta time compensation
+      particle.x += force.x * particle.speed * 0.5 * timeMultiplier
+      particle.y += force.y * particle.speed * 0.5 * timeMultiplier
 
       // Check for extreme position changes that would cause long lines
       const deltaX = Math.abs(particle.x - prevX)
       const deltaY = Math.abs(particle.y - prevY)
-      const maxDelta = 20 // Maximum allowed movement per frame
+      const maxDelta = 60 // Maximum allowed movement per frame
 
       if (deltaX > maxDelta || deltaY > maxDelta) {
         // Reset particle position and clear trail to prevent drawing lines
@@ -467,34 +571,13 @@ function updateParticles() {
         }
       }
 
-      // Age and remove old trail points more aggressively
-      const currentTime = utils.millis()
-      const maxTrailAge = 2000 // Reduced from 3000ms to 2000ms for faster cleanup
-
-      // Filter out old trail points less frequently to reduce GC pressure
-      if (particle.age % 30 === 0) {
-        // Only clean up every 30 frames (~0.5 seconds)
-        particle.trail = particle.trail.filter(
-          (point) =>
-            point.birthTime && currentTime - point.birthTime < maxTrailAge
-        )
-      }
-
-      // Also remove trails from very low-life particles to clean up faster
-      if (particle.life < 0.1) {
-        particle.trail = particle.trail.slice(
-          -Math.max(3, Math.floor(particle.trail.length * 0.3))
-        )
-      }
-
-      // Update age and life
+      // Update age and life with delta time compensation
       particle.age++
-      particle.life -= 0.001
+      particle.life -= 0.001 * timeMultiplier
       if (particle.life <= 0) {
         // Respawn particle and ensure trail is completely cleared
         particle.x = utils.random(app.screen.width)
         particle.y = utils.random(app.screen.height)
-        particle.trail = [] // Completely clear trail array
         particle.color = utils.generateBrightColor()
         particle.life = utils.random(0.7, 1.0)
         particle.speed = utils.random(0.6, 2.5)
@@ -580,19 +663,7 @@ function drawParticles() {
   // Clear the persistent graphics object instead of creating new ones
   particleGraphics.clear()
 
-  // Draw particle trails with fading effect
-  const currentTime = utils.millis()
-  const maxTrailAge = 2000 // Trail points fade out after 2 seconds (matches updateParticles)
-
   for (let particle of particles) {
-    // Clean up any remaining old trail points during drawing as well
-    if (particle.trail.length > 0) {
-      particle.trail = particle.trail.filter(
-        (point) =>
-          point.birthTime && currentTime - point.birthTime < maxTrailAge
-      )
-    }
-
     if (particle.trail.length > 1) {
       const col = utils.hexToRgb(particle.color)
 
@@ -613,30 +684,11 @@ function drawParticles() {
 
           // Only draw line if distance is reasonable (prevents long lines across screen)
           if (distance < 50 && distance > 0) {
-            // Calculate age-based fade for each trail segment
-            const segmentAge = currentTime - curr.birthTime
-            const ageFade = Math.max(0, 1 - segmentAge / maxTrailAge)
-
-            // Skip drawing segments that are too old or have invalid birthTime
-            if (!curr.birthTime || ageFade <= 0) {
-              continue
-            }
-
-            // Combine position fade (newer segments brighter) with age fade
-            const positionFade = i / particle.trail.length
-            const combinedAlpha =
-              (positionFade * particle.life * ageFade * 220) / 255 // Increased from 180 to 220 for brighter trails
-
             const weight = utils.map(i, 0, particle.trail.length, 1.5, 4.5) // Increased thickness from 0.3-2.5 to 1.5-4.5
 
-            // Only draw if alpha is significant enough to be visible
-            if (combinedAlpha > 6 / 255) {
-              // Lowered threshold from 8 to 6 to show more segments
-              const color = (col.r << 16) | (col.g << 8) | col.b
-              particleGraphics.lineStyle(weight, color, combinedAlpha)
-              particleGraphics.moveTo(prev.x, prev.y)
-              particleGraphics.lineTo(curr.x, curr.y)
-            }
+            particleGraphics.lineStyle(weight, col)
+            particleGraphics.moveTo(prev.x, prev.y)
+            particleGraphics.lineTo(curr.x, curr.y)
           }
         }
       }
@@ -652,14 +704,15 @@ function gameLoop(deltaTime) {
   frameCounter++
 
   // Clear background with fade effect
-  drawBackground()
+  if (frameCounter % 1 === 0) {
+    drawBackground()
+  }
 
-  // Update simulation
-  updateParticles()
+  // Update simulation with delta time
+  updateParticles(deltaTime)
 
   // Draw vector field arrows (less frequently to reduce CPU usage)
   if (frameCounter % 3 === 0) {
-    // Only update vector field every 3 frames
     drawVectorField()
   }
 
@@ -706,51 +759,6 @@ function setupEventHandlers() {
     if (event.buttons === 1) {
       // Left mouse button held down
       spawnParticlesAtMouse(5)
-    }
-  })
-
-  // Keyboard events
-  document.addEventListener('keydown', (event) => {
-    if (event.code === 'Space') {
-      event.preventDefault()
-      // Generate new vector field but keep existing particles
-      currentSeed = Math.floor(Math.random() * 1000000)
-
-      const functionCode = generateFunction(currentSeed)
-      const fn = compileVectorFieldFunction(functionCode)
-      console.log(
-        'Generated vector field function with seed:',
-        currentSeed,
-        'scale:',
-        currentScale,
-        fn
-      )
-      vectorField = createEnhancedVectorField(fn)
-      state.fn = fn
-      state.functionCode = functionCode
-      currentFunctionCode = functionCode
-      currentFunctionName = null
-      drawBackground()
-      updateURL() // Update URL with new seed
-    } else if (event.key === 'r') {
-      // Reset all particles
-      for (let particle of particles) {
-        particle.x = utils.random(app.screen.width)
-        particle.y = utils.random(app.screen.height)
-        particle.trail = []
-        particle.life = utils.random(0.7, 1.0)
-        particle.age = 0
-      }
-    } else if (event.key === 'c') {
-      // Clear screen completely
-      drawBackground()
-      // Also clear all particle trails to prevent streaks
-      for (let particle of particles) {
-        particle.trail = []
-      }
-    } else if (event.key === 'h' || event.key === 'H') {
-      // Toggle controls visibility
-      toggleControls()
     }
   })
 
@@ -992,15 +1000,13 @@ function generateShareableURL() {
   }
 
   try {
-    // Format: #seed,speed,particles,trail,flow,mouse,scale
+    // Format: #seed,particles,trail,flow,scale
     const params = [
       currentSeed,
-      speedMultiplier,
       numParticles,
-      maxTrailLength,
       flowIntensity,
-      mouseInfluence,
       currentScale,
+      longExposureDecay,
     ].join(',')
 
     const url = `${window.location.origin}${window.location.pathname}#${params}`
@@ -1052,34 +1058,26 @@ function loadFromURL() {
   try {
     // Check if it's the old format (just a seed) or new format (comma-separated)
     if (hash.includes(',')) {
-      // New format: seed,speed,particles,trail,flow,mouse,scale
+      // New format: seed,particles,flow,mouse,scale
       const params = hash.split(',')
-      if (params.length >= 7) {
+      if (params.length >= 5) {
         const seed = parseInt(params[0])
-        const speed = parseFloat(params[1])
-        const particles = parseInt(params[2])
-        const trail = parseInt(params[3])
-        const flow = parseFloat(params[4])
-        const mouse = parseFloat(params[5])
-        const scale = parseFloat(params[6])
+        const particles = parseInt(params[1])
+        const flow = parseFloat(params[2])
+        const scale = parseFloat(params[3])
+        const exposure = parseFloat(params[4])
 
         if (isNaN(seed)) return false
 
-        // Apply the parameters
-        speedMultiplier = !isNaN(speed) ? speed : 2.0
         numParticles = !isNaN(particles) ? particles : 300
-        maxTrailLength = !isNaN(trail) ? trail : 20
-        flowIntensity = !isNaN(flow) ? flow : 2.0
-        mouseInfluence = !isNaN(mouse) ? mouse : 1.0
-        currentScale = !isNaN(scale) ? scale : 5.0
+        flowIntensity = !isNaN(flow) ? flow : 4.0
+        longExposureDecay = !isNaN(exposure) ? exposure : 0.95
+        currentScale = !isNaN(scale) ? scale : 4.0
 
         console.log('Loading from URL with parameters:', {
           seed,
-          speed,
           particles,
-          trail,
           flow,
-          mouse,
           scale,
         })
 
@@ -1109,14 +1107,6 @@ function loadFromURL() {
 
 // Update slider UI elements to match current values
 function updateSlidersFromValues() {
-  // Speed slider
-  const speedSlider = document.getElementById('speed-slider')
-  const speedValue = document.getElementById('speed-value')
-  if (speedSlider && speedValue) {
-    speedSlider.value = speedMultiplier
-    speedValue.textContent = speedMultiplier.toFixed(1) + 'x'
-  }
-
   // Particle count slider
   const countSlider = document.getElementById('count-slider')
   const countValue = document.getElementById('count-value')
@@ -1125,12 +1115,12 @@ function updateSlidersFromValues() {
     countValue.textContent = numParticles.toString()
   }
 
-  // Trail length slider
-  const trailSlider = document.getElementById('trail-slider')
-  const trailValue = document.getElementById('trail-value')
-  if (trailSlider && trailValue) {
-    trailSlider.value = maxTrailLength
-    trailValue.textContent = maxTrailLength.toString()
+  // Exposure
+  const exposureSlider = document.getElementById('exposure-slider')
+  const exposureValue = document.getElementById('exposure-value')
+  if (exposureSlider && exposureValue) {
+    exposureSlider.value = longExposureDecay
+    exposureValue.textContent = longExposureDecay.toFixed(2)
   }
 
   // Flow intensity slider
@@ -1139,14 +1129,6 @@ function updateSlidersFromValues() {
   if (flowSlider && flowValue) {
     flowSlider.value = flowIntensity
     flowValue.textContent = flowIntensity.toFixed(1) + 'x'
-  }
-
-  // Mouse influence slider
-  const mouseSlider = document.getElementById('mouse-slider')
-  const mouseValue = document.getElementById('mouse-value')
-  if (mouseSlider && mouseValue) {
-    mouseSlider.value = mouseInfluence
-    mouseValue.textContent = mouseInfluence.toFixed(1) + 'x'
   }
 
   // Scale slider
@@ -1162,15 +1144,13 @@ function updateURL() {
   if (currentSeed === null) return
 
   try {
-    // Format: #seed,speed,particles,trail,flow,mouse,scale
+    // Format: #seed,particles,flow,scale
     const params = [
       currentSeed,
-      speedMultiplier,
       numParticles,
-      maxTrailLength,
       flowIntensity,
-      mouseInfluence,
       currentScale,
+      longExposureDecay,
     ].join(',')
 
     const newURL = `${window.location.pathname}#${params}`
@@ -1186,19 +1166,6 @@ window.generateShareableURL = generateShareableURL
 
 // Setup control listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Speed control
-  const speedSlider = document.getElementById('speed-slider')
-  const speedValue = document.getElementById('speed-value')
-  if (speedSlider && speedValue) {
-    speedSlider.addEventListener('input', (e) => {
-      speedMultiplier = parseFloat(e.target.value)
-      speedValue.textContent = speedMultiplier.toFixed(1) + 'x'
-      updateURL()
-    })
-  } else {
-    console.error('Speed slider elements not found')
-  }
-
   // Particle count control
   const countSlider = document.getElementById('count-slider')
   const countValue = document.getElementById('count-value')
@@ -1210,19 +1177,6 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   } else {
     console.error('Count slider elements not found')
-  }
-
-  // Trail length control
-  const trailSlider = document.getElementById('trail-slider')
-  const trailValue = document.getElementById('trail-value')
-  if (trailSlider && trailValue) {
-    trailSlider.addEventListener('input', (e) => {
-      maxTrailLength = parseInt(e.target.value)
-      trailValue.textContent = maxTrailLength.toString()
-      updateURL()
-    })
-  } else {
-    console.error('Trail slider elements not found')
   }
 
   // Flow intensity control
@@ -1238,17 +1192,18 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Flow slider elements not found')
   }
 
-  // Mouse influence control
-  const mouseSlider = document.getElementById('mouse-slider')
-  const mouseValue = document.getElementById('mouse-value')
-  if (mouseSlider && mouseValue) {
-    mouseSlider.addEventListener('input', (e) => {
-      mouseInfluence = parseFloat(e.target.value)
-      mouseValue.textContent = mouseInfluence.toFixed(1) + 'x'
+  // Exposure control
+  const exposureSlider = document.getElementById('exposure-slider')
+  const exposureValue = document.getElementById('exposure-value')
+  if (exposureSlider && exposureValue) {
+    exposureSlider.addEventListener('input', (e) => {
+      longExposureDecay = parseFloat(e.target.value)
+      exposureValue.textContent = longExposureDecay.toFixed(2)
+      longExposureFilter.decay = longExposureDecay
       updateURL()
     })
   } else {
-    console.error('Mouse slider elements not found')
+    console.error('Exposure slider elements not found')
   }
 
   // Scale control
