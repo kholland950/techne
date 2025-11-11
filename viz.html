@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Techne - 2D Interactive Art</title>
+    <link rel="icon" href="favicon.jpg" />
+
+    <!-- Import map for better module resolution -->
+    <script type="importmap">
+      {
+        "imports": {
+          "pixi.js": "https://esm.sh/pixi.js@7.2.4",
+          "@pixi/filter-bloom": "https://esm.sh/@pixi/filter-bloom@5.1.1",
+          "@pixi/filter-adjustment": "https://esm.sh/@pixi/filter-adjustment@5.1.1",
+          "@pixi/filter-crt": "https://esm.sh/@pixi/filter-crt@5.1.1",
+          "simplex-noise": "https://esm.sh/simplex-noise@4.0.1",
+          "uniqolor": "https://esm.sh/uniqolor@1.1.1",
+          "color2k": "https://esm.sh/color2k@2.0.3"
+        }
+      }
+    </script>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script src="viz.js" type="module"></script>
+  </body>
+</html>
